@@ -5,18 +5,22 @@ from sklearn import svm
 from sklearn.utils import Bunch
 import numpy as np
 
+from sklearn.datasets import fetch_openml
+
+
 class Classifier:
 
-    def __init__(self):
+    def __init__(self, nuVal, gamVal):
         #look at own kernel & LSSVM
-        self.model = svm.SVC(kernel='rbf')
+        self.model = svm.OneClassSVM(nu=nuVal, kernel='rbf', gamma=gamVal)#svm.SVC(kernel='rbf')
         self.performance = []
         results = []
 
     def train (self, dataset):
         
-        trainData, testData, trainTarget, testTarget = train_test_split(dataset.samples, dataset.targets, test_size=0.3,random_state=109)
-        self.model.fit( trainData, trainTarget)
+        trainData, testData, trainTarget, testTarget = train_test_split(dataset.samples, dataset.targets, test_size=0.3,random_state=108)
+        self.model.fit( trainData)#, trainTarget)
+        print("testTarg:",testTarget)
         prediction = self.model.predict(testData)
         print("prediction: " + str(prediction))
 
@@ -35,6 +39,9 @@ class Classifier:
 
     def getPerformance(self):
         return self.performance
+
+    def updateModel(nuVal, gamVal):
+        self.model = svm.OneClassSVM(nu=nuVal, kernel='rbf', gamma=gamVal)
 
 
 
@@ -57,9 +64,11 @@ class Main:
         return
 
     def trainModel(self, trainFile):
+        #while performance is increasing:
         self.loadData(trainFile)
         self.classifier.train(self.trainingData)
         self.classifier.getPerformance() #show metrics of trained clsf
+        #update features and parameters based on GA
         return
 
     def classifyData(self, classFile ):
@@ -117,24 +126,34 @@ class Dataset:
         
 if __name__ == "__main__":
     
-    main = Main()
+    #main = Main()
     #main.showMenu()
 
-    clf = Classifier()
 
-
+    #cancer = fetch_openml(name='KDDCup99', version=1)
     cancer = datasets.load_wine()
     
     print("Features: ", cancer.feature_names)
     print("Labels: ", cancer.target_names)
-    print("shape: ",cancer.data.shape)
+    print("shape: ",cancer.data.shape)    
 
 
     dataset = Dataset(cancer.data.shape)
     dataset.samples = cancer.data
     dataset.targets = cancer.target
 
-    dataset.removeFeatures([1,2,3,5,6,8])
+    #prepare for oneclass
+    dataset.targets[ dataset.targets != 0] = 1
+    dataset.targets[ dataset.targets == 0] = -1
+    #print("Targetsss: ", dataset.targets)
+
+    outliers = dataset.targets[dataset.targets == -1]
+    outFraction = outliers.shape[0]/dataset.targets.shape[0]
+
+    clf = Classifier(outFraction, 0.005)
+    
+
+    #dataset.removeFeatures([1,2,3,5,6,8])
     print("New shape: " + str(dataset.samples.shape))
 
     clf.train(dataset)
