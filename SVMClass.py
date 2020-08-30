@@ -6,6 +6,7 @@ from sklearn.utils import Bunch
 import numpy as np
 
 from sklearn.datasets import fetch_openml
+from Genetic import *
 
 
 class Classifier:
@@ -20,9 +21,9 @@ class Classifier:
         
         trainData, testData, trainTarget, testTarget = train_test_split(dataset.samples, dataset.targets, test_size=0.3,random_state=108)
         self.model.fit( trainData)#, trainTarget)
-        print("testTarg:",testTarget)
+        #print("testTarg:",testTarget)
         prediction = self.model.predict(testData)
-        print("prediction: " + str(prediction))
+        #print("prediction: " + str(prediction))
 
         self.calculatePerformance( testTarget, prediction)
         
@@ -33,7 +34,7 @@ class Classifier:
         return self.model.predict(unclassData)
 
     def calculatePerformance(self, test, prediction):
-        self.performance.append(metrics.accuracy_score(test, prediction))
+        self.performance = metrics.accuracy_score(test, prediction)
         #and so on other metrics
                                 
 
@@ -51,11 +52,10 @@ class Main:
         self.rawData = -1
         self.trainingData = -1
         self.testData = -1
-        classifier = Classifier()
+        self.classifier = Classifier()
 
 
-    def loadData( self, filename ):        
-
+    def loadData( self, filename ):       
         #rawData = #... file reading code
         processedData = Dataset()
         processedData.clean(rawdata) # preprocessing
@@ -66,6 +66,8 @@ class Main:
     def trainModel(self, trainFile):
         #while performance is increasing:
         self.loadData(trainFile)
+        # featureSet = FeatureSelector.ga(self.classifier)
+        # vv this will be done in ga vv
         self.classifier.train(self.trainingData)
         self.classifier.getPerformance() #show metrics of trained clsf
         #update features and parameters based on GA
@@ -113,10 +115,25 @@ class Dataset:
         #save classification of each 2sec period into targets
         return
 
+    def makeCopy(self):
+        copy = Dataset(self.samples.shape)
+        copy.samples = self.samples
+        copy.targets = self.targets
+        return copy
+
+    # adapt this to take featureSet
     def removeFeatures(self, featureIndices):
         #cut columns out of samples
         self.samples = np.delete(self.samples, featureIndices, axis=1)
         return
+
+    def adjustFeatures(self, featureSet):
+        removeIndices =  []
+        for i in range(len(featureSet.features)):
+            if featureSet.features[i] == 0:
+                removeIndices.append(i)
+        self.samples = np.delete(self.samples, removeIndices, axis=1)
+        return removeIndices
 
     def getData(self):
         return self.samples
@@ -129,12 +146,12 @@ if __name__ == "__main__":
     #main = Main()
     #main.showMenu()
 
-
-    #cancer = fetch_openml(name='KDDCup99', version=1)
-    cancer = datasets.load_wine()
+    cancer = fetch_openml(name='KDDCup99', version=1)
+    #cancer = datasets.load_wine()
+    print(cancer.details)
     
     print("Features: ", cancer.feature_names)
-    print("Labels: ", cancer.target_names)
+    print("Labels: ", np.unique(cancer.target))
     print("shape: ",cancer.data.shape)    
 
 
@@ -143,8 +160,8 @@ if __name__ == "__main__":
     dataset.targets = cancer.target
 
     #prepare for oneclass
-    dataset.targets[ dataset.targets != 0] = 1
-    dataset.targets[ dataset.targets == 0] = -1
+    dataset.targets[ dataset.targets == "normal"] = 1
+    dataset.targets[ dataset.targets != "normal"] = -1
     #print("Targetsss: ", dataset.targets)
 
     outliers = dataset.targets[dataset.targets == -1]
@@ -156,7 +173,10 @@ if __name__ == "__main__":
     #dataset.removeFeatures([1,2,3,5,6,8])
     print("New shape: " + str(dataset.samples.shape))
 
-    clf.train(dataset)
+    featureSelector = FeatureSelector()
+    featureSelector.ga(2,clf,dataset)
+
+    #clf.train(dataset)
     print("Performance: " + str(clf.getPerformance()))
 
 
